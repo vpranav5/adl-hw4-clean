@@ -22,6 +22,9 @@ import math
 import json
 
 
+# Name: Pranav Teja Varanasi
+# UT EID: ptv247
+
 def load(model_name: str = "clip_model"):
     from pathlib import Path
 
@@ -106,10 +109,10 @@ class CLIP(nn.Module):
         self.vision_encoder = vision_encoder
         self.text_encoder = text_encoder
         # TODO: implement the rest components
+
         self.vision_proj = nn.Linear(vision_encoder.config.hidden_size, proj_dim, bias=False)
         self.text_proj = nn.Linear(text_encoder.config.hidden_size, proj_dim, bias=False)
-
-        # Log temperature (scalar) initialized to log(1/T)
+        # use logit scale as parameter based on temperature
         self.logit_scale = nn.Parameter(torch.ones([]) * math.log(1.0 / temperature))
 
     def encode_image(self, image: torch.Tensor) -> torch.Tensor:
@@ -189,37 +192,37 @@ class CLIP(nn.Module):
             TODO: think about the what values should be returned
         """
         
+        # get vision data type
         proj_dtype = self.vision_proj.weight.dtype
 
-        # Encode image
+        # encode image with vision encoder
         pixel_values = pixel_values.to(dtype=proj_dtype)
         v_out = self.vision_encoder(pixel_values)
         v_hidden = v_out.last_hidden_state if hasattr(v_out, "last_hidden_state") else v_out[0]
-        v_feat = v_hidden.mean(dim=1)  # [B_img, H]
+        v_feat = v_hidden.mean(dim=1) 
 
-        # Encode text
+        # encode text with text encoder and mask
         t_out = self.text_encoder(input_ids=input_ids, attention_mask=attention_mask)
-        t_hidden = t_out.last_hidden_state if hasattr(t_out, "last_hidden_state") else t_out[0]  # [B_txt, L, H]
+        t_hidden = t_out.last_hidden_state if hasattr(t_out, "last_hidden_state") else t_out[0]
 
-        # Masked mean pooling over tokens (avoid fp32 upcast)
+        # use masked mean pooling
         if attention_mask is not None:
-            mask = attention_mask.unsqueeze(-1).to(dtype=t_hidden.dtype)  # [B_txt, L, 1]
-            t_feat = (t_hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1e-6)  # [B_txt, H]
+            mask = attention_mask.unsqueeze(-1).to(dtype=t_hidden.dtype)  
+            t_feat = (t_hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1e-6) 
         else:
             t_feat = t_hidden.mean(dim=1)
 
-        # Match projection input dtypes
+        # get input projection data types
         v_feat = v_feat.to(dtype=self.vision_proj.weight.dtype)
         t_feat = t_feat.to(dtype=self.text_proj.weight.dtype)
 
-        # Project + L2 normalize
-        v_emb = F.normalize(self.vision_proj(v_feat), p=2, dim=-1)  # [B_img, D]
-        t_emb = F.normalize(self.text_proj(t_feat), p=2, dim=-1)    # [B_txt, D]
+        # l2 normalize
+        v_emb = F.normalize(self.vision_proj(v_feat), p=2, dim=-1)  
+        t_emb = F.normalize(self.text_proj(t_feat), p=2, dim=-1) 
 
-        # Similarities with dtype-aligned temperature
-        # (optionally clamp logit_scale to avoid extreme values)
+        # apply logit scale
         logit_scale = self.logit_scale.exp().to(v_emb.dtype)
-        logits_per_image = logit_scale * (v_emb @ t_emb.T)  # [B_img, B_txt]
+        logits_per_image = logit_scale * (v_emb @ t_emb.T)
 
         return v_emb, t_emb, logits_per_image
 
@@ -240,13 +243,15 @@ def compute_clip_loss(
     Returns:
         The loss for the CLIP model.
     """
-    _, _, logits_per_image = outputs  # <-- you were missing this line
-    logits_i = logits_per_image.float()          # [N, N]
-    logits_t = logits_i.transpose(0, 1).contiguous()  # [N, N]
+
+    # get outputs
+    _, _, logits_per_image = outputs 
+    logits_i = logits_per_image.float()          
+    logits_t = logits_i.transpose(0, 1).contiguous() 
 
     N = logits_i.size(0)
     if N < 2:
-        # Cross-entropy with a single class is degenerate; avoid NaNs if batch==1
+        # cross entropy loss
         return torch.tensor(0.0, device=logits_i.device, dtype=logits_i.dtype)
 
     targets = torch.arange(N, device=logits_i.device)

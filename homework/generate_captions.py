@@ -11,6 +11,8 @@ import torch.nn.functional as F
 import math
 import json
 
+# Name: Pranav Teja Varanasi
+# UT EID: ptv247
 
 def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_height: int = 100) -> list:
     """
@@ -31,7 +33,7 @@ def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_
     karts = extract_kart_objects(info_path, view_index, img_width, img_height)
     track_name = extract_track_info(info_path)
     
-    # Find ego kart
+    # find ego kart
     ego = None
     for k in karts:
         if k.get("is_center_kart") or k["instance_id"] == 0:
@@ -39,18 +41,17 @@ def generate_caption(info_path: str, view_index: int, img_width: int = 150, img_
             break
     
     if ego is None:
-        return []  # Skip views without ego kart
+        return []  
     
     captions = []
     
-    # Basic captions - always include these
+    # first 3 captions
     captions.append(f"The track is {track_name}.")
     captions.append(f"There are {len(karts)} karts in the scenario.")
     
-    # Ego kart caption
     captions.append(f"{ego['kart_name']} is the ego car.")
     
-    # Relative position captions
+    # 4: relative position captions
     MARGIN = 6
     
     for k in karts:
@@ -112,29 +113,25 @@ def generate(split: str = "train", output_file: str = None, num_views: int = Non
     all_caption_pairs = []
     info_files = sorted(split_dir.glob("*_info.json"))
     
-    print(f"Processing {len(info_files)} info files from {split_dir}")
     
-    processed_count = 0
-    skipped_count = 0
-    
+    # loop all files
     for info_path in info_files:
-        # Process each view
         for view_index in range(num_views):
-            # Check if image exists
+            # check for img
             base_name = info_path.stem.replace("_info", "")
             image_path = split_dir / f"{base_name}_{view_index:02d}_im.jpg"
             
             if not image_path.exists():
                 continue
             
-            # Generate captions
+            # generate captions
             captions = generate_caption(str(info_path), view_index)
             
+            # skip if no captions
             if not captions:
-                skipped_count += 1
                 continue
             
-            # Create caption pairs
+            # get caption pairs
             image_file = f"{split}/{base_name}_{view_index:02d}_im.jpg"
             
             for caption in captions:
@@ -143,18 +140,9 @@ def generate(split: str = "train", output_file: str = None, num_views: int = Non
                     "caption": caption
                 })
             
-            processed_count += 1
-            if processed_count % 100 == 0:
-                print(f"Processed {processed_count} views, generated {len(all_caption_pairs)} captions...")
-    
-    # Save to JSON
+    # save all captions
     with open(output_file, "w") as f:
         json.dump(all_caption_pairs, f, indent=2)
-    
-    print(f"\nGenerated {len(all_caption_pairs)} caption pairs")
-    print(f"Saved to {output_file}")
-    print(f"Processed {processed_count} views successfully")
-    print(f"Skipped {skipped_count} views (no ego kart)")
     
     return all_caption_pairs
 

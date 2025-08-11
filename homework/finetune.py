@@ -15,6 +15,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is
 
 processor = AutoProcessor.from_pretrained("HuggingFaceTB/SmolVLM-256M-Instruct")
 
+# Name: Pranav Teja Varanasi
+# UT EID: ptv247
 
 def load(model_name: str = "vlm_model") -> BaseVLM:
     from pathlib import Path
