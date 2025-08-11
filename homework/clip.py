@@ -17,6 +17,10 @@ processor = AutoProcessor.from_pretrained("HuggingFaceTB/SmolVLM-256M-Instruct")
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
+import torch.nn.functional as F
+import math
+import json
+
 
 def load(model_name: str = "clip_model"):
     from pathlib import Path
