@@ -69,6 +69,37 @@ def clip_data_collator(features: list[dict[str, torch.Tensor]]) -> dict[str, tor
     }
 
 
+# class CaptionDatasetForTraining(Dataset):
+#     def __init__(self, dataset: CaptionDataset, processor: AutoProcessor):
+#         self.dataset = dataset
+#         self.image_processor = tv.transforms.Compose(
+#             [
+#                 tv.transforms.Resize(192),
+#                 tv.transforms.RandomResizedCrop(192, scale=(0.5, 1.0)),
+#                 tv.transforms.ToTensor(),
+#                 tv.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+#             ]
+#         )
+#         self.processor = processor
+
+#     def __len__(self):
+#         return len(self.dataset)
+
+#     def __getitem__(self, idx: int) -> dict[str, Any]:
+#         item = self.dataset[idx]
+#         image = Image.open(item["image_path"]).convert("RGB")
+#         pixel_values = self.image_processor(image)
+#         text = item["caption"] + self.processor.tokenizer.eos_token
+#         text_inputs = self.processor(text=text, return_tensors="pt", padding=True, truncation=True)
+#         input_ids = text_inputs["input_ids"].squeeze(0).long()
+#         attention_mask = text_inputs["attention_mask"].squeeze(0)
+#         return {
+#             "pixel_values": pixel_values,
+#             "input_ids": input_ids,
+#             "attention_mask": attention_mask,
+#             "labels": input_ids,  # placeholder to fit the collator
+#         }
+
 class CaptionDatasetForTraining(Dataset):
     def __init__(self, dataset: CaptionDataset, processor: AutoProcessor):
         self.dataset = dataset
@@ -89,16 +120,28 @@ class CaptionDatasetForTraining(Dataset):
         item = self.dataset[idx]
         image = Image.open(item["image_path"]).convert("RGB")
         pixel_values = self.image_processor(image)
-        text = item["caption"] + self.processor.tokenizer.eos_token
-        text_inputs = self.processor(text=text, return_tensors="pt", padding=True, truncation=True)
+
+        # apply eos token fix
+        text = item["caption"]
+
+        text_inputs = self.processor(
+            text=text, 
+            return_tensors="pt", 
+            padding=True, 
+            truncation=True,
+            add_special_tokens=True 
+        )
+
         input_ids = text_inputs["input_ids"].squeeze(0).long()
         attention_mask = text_inputs["attention_mask"].squeeze(0)
+
         return {
             "pixel_values": pixel_values,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
-            "labels": input_ids,  # placeholder to fit the collator
+            "labels": input_ids
         }
+        
 
 
 class CLIP(nn.Module):
