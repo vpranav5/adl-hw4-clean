@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-# Name: Pranav Teja Varanasi
+# Name: Pranav  Varanasi
 # UT EID: ptv247
 
 # Define object type mapping
@@ -324,6 +324,39 @@ def generate_qa_pairs(info_path: str, view_index: int, img_width: int = 150, img
 
     # Get center of ego kart
     ego_center_x, ego_center_y = ego_kart["center"]
+
+    # 4: Relative questions
+    for kart in karts:
+        if kart["instance_id"] == ego_kart["instance_id"]:
+            continue
+            
+        kart_center_x, kart_center_y = kart["center"]
+        dx = kart_center_x - ego_center_x
+        dy = kart_center_y - ego_center_y
+        
+        # left/right question
+        if dx <= 0: 
+            lr_answer = "left"
+        else:
+            lr_answer = "right"
+            
+        qa_pairs.append({
+            "image_file": image_file,
+            "question": f"Is {kart['kart_name']} to the left or right of the ego car?",
+            "answer": lr_answer
+        })
+        
+        # front/back question  
+        if dy <= 0:
+            fb_answer = "front"
+        else:
+            fb_answer = "back"
+            
+        qa_pairs.append({
+            "image_file": image_file,
+            "question": f"Is {kart['kart_name']} in front of or behind the ego car?",
+            "answer": fb_answer
+        })
     
     # 4: relative positions from ego
     for kart in karts:
