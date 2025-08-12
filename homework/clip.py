@@ -278,7 +278,7 @@ def get_target_modules_for_lora(model: nn.Module) -> list[str]:
 def train(
     data_dir: Path | None = None,
     output_dir: str = "clip",
-    num_train_epochs: float = 1,  # for debugging purpose, increase this once the dry run works
+    num_train_epochs: float = 1.5,  # for debugging purpose, increase this once the dry run works
     per_device_train_batch_size: int = 64,
     gradient_accumulation_steps: int = 1,
     learning_rate: float = 2e-4,
